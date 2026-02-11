@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.demo.comentoStatistic.dao.StatisticMapper">
+
+    <select id="selectYearLogin" parameterType="string" resultType="YearCountDto">
+        select concat('20', #{year}) as year, count(*) as totCnt
+        from statistic.request_info ri
+        where left(ri.create_date, 2) = #{year};
+    </select>
+
+
+    <select id="selectYearMonthLogin" parameterType="string" resultType="YearMonthCountDto">
+        select concat('20', #{yearMonth}) as yearMonth, count(*) as totCnt
+        from statistic.request_info ri
+        where left(ri.create_date, 4) = #{yearMonth};
+    </select>
+
+    <select id="selectMonthlyLogin" parameterType="string" resultType="map">
+        /* 월별 데이터 조회 */
+        SELECT
+            SUBSTRING(ri.create_date, 3, 2) AS month,
+            COUNT(*) AS totCnt
+        FROM statistic.request_info ri
+        WHERE LEFT(ri.create_date, 2) = #{year}
+        GROUP BY SUBSTRING(ri.create_date, 3, 2)
+        ORDER BY month ASC;
+    </select>
+
+    <select id="selectDailyLogin" parameterType="string" resultType="map">
+        /* 일자별 데이터 조회 */
+        SELECT
+            SUBSTRING(ri.create_date, 5, 2) AS day,
+            COUNT(*) AS totCnt
+        FROM statistic.request_info ri
+        WHERE LEFT(ri.create_date, 4) = #{yearMonth}
+        GROUP BY SUBSTRING(ri.create_date, 5, 2)
+        ORDER BY day ASC;
+    </select>
+
+    <select id="selectAverageDailyLogin" parameterType="string" resultType="double">
+        /* 해당 연도의 일별 로그인 수 평균값 */
+        SELECT AVG(daily_cnt)
+        FROM (
+        SELECT COUNT(*) AS daily_cnt
+        FROM statistic.request_info ri
+        WHERE LEFT(ri.create_date, 2) = #{year}
+        GROUP BY LEFT(ri.create_date, 6) /* YYMMDD 기준 그룹핑 */
+        ) AS temp;
+    </select>
+
+    <select id="selectLoginCountExcludingHoliday" parameterType="map" resultType="int">
+        /* 현재 휴일을 포함하여 계산함 */
+        SELECT COUNT(*)
+        FROM statistic.request_info ri
+        WHERE LEFT(ri.create_date, 2) = #{year}
+        <if test="holidayList != null and holidayList.size() > 0">
+            AND RIGHT(LEFT(ri.create_date, 6), 4) NOT IN
+            <foreach collection="holidayList" item="holiday" open="(" separator="," close=")">
+                #{holiday}
+            </foreach>
+        </if>
+    </select>
+
+    <select id="selectDeptMonthlyLogin" parameterType="string" resultType="map">
+        /* 각 부서의 월별 로그인 수 조회 */
+        SELECT
+        u.hr_organ AS department,
+        SUBSTRING(ri.create_date, 3, 2) AS month,
+        COUNT(*) AS totCnt
+        FROM statistic.request_info ri
+        INNER JOIN statistic.user u ON ri.user_id = u.user_id
+        WHERE LEFT(ri.create_date, 2) = #{year}
+        GROUP BY u.hr_organ, SUBSTRING(ri.create_date, 3, 2)
+        ORDER BY u.hr_organ, month ASC;
+    </select>
+
+
+</mapper>
